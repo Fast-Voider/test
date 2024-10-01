@@ -12,6 +12,7 @@ local function createOutline()
     outline.Color = Color3.fromRGB(0, 255, 0)  -- Green outline color
     outline.Thickness = 2
     outline.Transparency = 1
+    outline.Visible = false
     return outline
 end
 
@@ -26,10 +27,11 @@ local function drawOutline(character)
 
         local rootScreenPos, rootVisible = camera:WorldToViewportPoint(humanoidRootPart.Position)
 
-        -- Check if the character is not behind the camera
+        -- Check if the character is in front of the camera and visible
         if rootVisible and rootScreenPos.Z > 0 then
-            -- Only show outlines if the character is in front of the camera
             local size = character:GetExtentsSize()
+
+            -- Get the screen positions for the four corners of the bounding box
             local topLeft = camera:WorldToViewportPoint(humanoidRootPart.Position + Vector3.new(-size.X/2, size.Y/2, 0))
             local topRight = camera:WorldToViewportPoint(humanoidRootPart.Position + Vector3.new(size.X/2, size.Y/2, 0))
             local bottomLeft = camera:WorldToViewportPoint(humanoidRootPart.Position + Vector3.new(-size.X/2, -size.Y/2, 0))
