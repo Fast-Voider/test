@@ -7,7 +7,7 @@ local espEnabled = false
 local outlines = {}
 
 -- Function to create the outline for a character
-local function createOutline(part)
+local function createOutline()
     local outline = Drawing.new("Quad")
     outline.Color = Color3.fromRGB(0, 255, 0)  -- Green outline color
     outline.Thickness = 2
@@ -25,7 +25,10 @@ local function drawOutline(character)
         outlines[character] = outlines[character] or createOutline()
 
         local rootScreenPos, rootVisible = camera:WorldToViewportPoint(humanoidRootPart.Position)
-        if rootVisible then
+
+        -- Check if the character is not behind the camera
+        if rootVisible and rootScreenPos.Z > 0 then
+            -- Only show outlines if the character is in front of the camera
             local size = character:GetExtentsSize()
             local topLeft = camera:WorldToViewportPoint(humanoidRootPart.Position + Vector3.new(-size.X/2, size.Y/2, 0))
             local topRight = camera:WorldToViewportPoint(humanoidRootPart.Position + Vector3.new(size.X/2, size.Y/2, 0))
@@ -39,17 +42,16 @@ local function drawOutline(character)
             outlines[character].PointD = Vector2.new(bottomLeft.X, bottomLeft.Y)
             outlines[character].Visible = true
         else
-            -- Hide the outline if the character is off-screen
+            -- Hide the outline if the character is off-screen or behind the camera
             outlines[character].Visible = false
         end
     else
-        -- Remove the outline if the humanoid root part is not visible or the character is dead
+        -- If the character or HumanoidRootPart is missing, hide the outline
         if outlines[character] then
             outlines[character].Visible = false
         end
     end
 end
-
 
 -- Function to update the outlines for all players
 local function updateOutlineESP()
