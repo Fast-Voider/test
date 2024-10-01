@@ -47,11 +47,26 @@ local function hitboxLoop()
     end
 end
 
+-- Function to reset all heads when hitbox is toggled off
+local function resetAllHeads()
+    for _, v in ipairs(game.Players:GetPlayers()) do
+        if v.Character then
+            local head = v.Character:FindFirstChild("Head")
+            if head and isResized(head) then
+                resetHeadSize(head)
+            end
+        end
+    end
+end
+
 -- Toggle function
 function hitbox.toggle()
     hitbox.enabled = not hitbox.enabled
     if hitbox.enabled then
         spawn(hitboxLoop)
+    else
+        -- Reset all heads when toggling off
+        resetAllHeads()
     end
 end
 
