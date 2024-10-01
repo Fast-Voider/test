@@ -39,6 +39,7 @@ local function drawOutline(character)
             outlines[character].PointD = Vector2.new(bottomLeft.X, bottomLeft.Y)
             outlines[character].Visible = true
         else
+            -- Hide the outline if the character is off-screen
             outlines[character].Visible = false
         end
     else
@@ -48,6 +49,7 @@ local function drawOutline(character)
         end
     end
 end
+
 
 -- Function to update the outlines for all players
 local function updateOutlineESP()
@@ -72,10 +74,13 @@ end
 -- Method to stop the outline ESP
 function OutlineESP.stop()
     espEnabled = false
-    -- Hide all outlines
+    -- Hide and clean up all outlines
     for _, outline in pairs(outlines) do
         outline.Visible = false
+        outline:Remove()  -- Properly remove the drawing object
     end
+    -- Clear the outlines table
+    outlines = {}
 end
 
 return OutlineESP
