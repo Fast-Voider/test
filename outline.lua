@@ -169,7 +169,7 @@ end)
 function OutlineESP.start()
     if not espEnabled then
         espEnabled = true
-        updateOutlineESP()
+        coroutine.wrap(updateOutlineESP)() -- Run the update function in a coroutine
     end
 end
 
