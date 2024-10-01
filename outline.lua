@@ -1,181 +1,145 @@
-local ESP = {}
-local players = game:GetService("Players")
-local runService = game:GetService("RunService")
-local camera = workspace.CurrentCamera
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
 
-local espEnabled = false
-local boxes = {}
+-- Function to create ESP for a player
+local function createESP(player)
+    if player ~= LocalPlayer then
+        local character = player.Character
+        if character and character:FindFirstChild("HumanoidRootPart") then
+            local humanoidRootPart = character.HumanoidRootPart
+            local head = character:FindFirstChild("Head")
+            local humanoid = character:FindFirstChild("Humanoid")
 
--- Function to create a 3D box for each player
-local function create3DBox(player)
-    local box = {}
+            -- Create BillboardGui for username and health percentage
+            local billboardGui = Instance.new("BillboardGui")
+            billboardGui.Adornee = head
+            billboardGui.Size = UDim2.new(0, 100, 0, 50)
+            billboardGui.AlwaysOnTop = true
+            billboardGui.StudsOffset = Vector3.new(0, 3, 0)
 
-    -- Create the outline for a 3D box
-    box.parts = {
-        ["top"] = Drawing.new("Line"),
-        ["bottom"] = Drawing.new("Line"),
-        ["left"] = Drawing.new("Line"),
-        ["right"] = Drawing.new("Line"),
-        ["front"] = Drawing.new("Line"),
-        ["back"] = Drawing.new("Line")
-    }
+            -- Add username label
+            local usernameLabel = Instance.new("TextLabel", billboardGui)
+            usernameLabel.Size = UDim2.new(1, 0, 0.5, 0)
+            usernameLabel.BackgroundTransparency = 1
+            usernameLabel.Text = player.Name
+            usernameLabel.TextColor3 = Color3.new(1, 1, 1) -- White color
+            usernameLabel.TextStrokeTransparency = 0.5
+            usernameLabel.TextScaled = true
 
-    for _, part in pairs(box.parts) do
-        part.Color = Color3.fromRGB(0, 255, 0)  -- Set box color (green)
-        part.Thickness = 2
-        part.Transparency = 1
-        part.Visible = false
-    end
+            -- Add health percentage label
+            local healthLabel = Instance.new("TextLabel", billboardGui)
+            healthLabel.Size = UDim2.new(1, 0, 0.5, 0)
+            healthLabel.Position = UDim2.new(0, 0, 0.5, 0)
+            healthLabel.BackgroundTransparency = 1
+            healthLabel.TextColor3 = Color3.new(0, 1, 0) -- Green color for health percentage
+            healthLabel.TextStrokeTransparency = 0.5
+            healthLabel.TextScaled = true
 
-    -- Additional elements: health bar and username
-    box.healthBar = Drawing.new("Line")
-    box.healthBar.Color = Color3.fromRGB(255, 0, 0)
-    box.healthBar.Thickness = 2
-    box.healthBar.Transparency = 1
-    box.healthBar.Visible = false
+            -- Create a health bar
+            local healthBar = Instance.new("Frame", billboardGui)
+            healthBar.Size = UDim2.new(0.2, 0, 1, 0) -- Health bar size
+            healthBar.Position = UDim2.new(1.1, 0, 0, 0) -- Position it to the right of the character
+            healthBar.BackgroundTransparency = 0.3
+            healthBar.BackgroundColor3 = Color3.new(1, 0, 0) -- Red color for health bar background
 
-    box.username = Drawing.new("Text")
-    box.username.Size = 18
-    box.username.Color = Color3.fromRGB(255, 255, 255)
-    box.username.Center = true
-    box.username.Outline = true
-    box.username.Visible = false
+            local healthBarFill = Instance.new("Frame", healthBar)
+            healthBarFill.Size = UDim2.new(humanoid.Health / humanoid.MaxHealth, 0, 1, 0) -- Set based on current health
+            healthBarFill.BackgroundColor3 = Color3.new(0, 1, 0) -- Green color for health bar fill
 
-    return box
-end
+            -- 3D Box ESP
+            local boxAdornment = Instance.new("BoxHandleAdornment")
+            boxAdornment.Adornee = humanoidRootPart
+            boxAdornment.Size = humanoidRootPart.Size + Vector3.new(1, 2, 1)
+            boxAdornment.AlwaysOnTop = true
+            boxAdornment.ZIndex = 5
+            boxAdornment.Color3 = Color3.new(0, 1, 0) -- Green box color
+            boxAdornment.Transparency = 0.3
+            boxAdornment.Parent = humanoidRootPart
 
--- Function to update the 3D box position and visibility
-local function update3DBox(player, character)
-    if not character then return end
-
-    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
-    local head = character:FindFirstChild("Head")
-    local humanoid = character:FindFirstChild("Humanoid")
-
-    if humanoidRootPart and head and humanoid then
-        local box = boxes[character] or create3DBox(player)
-        boxes[character] = box
-
-        local size = character:GetExtentsSize()
-        local topLeftFront = humanoidRootPart.Position + Vector3.new(-size.X/2, size.Y/2, size.Z/2)
-        local topRightFront = humanoidRootPart.Position + Vector3.new(size.X/2, size.Y/2, size.Z/2)
-        local bottomLeftFront = humanoidRootPart.Position + Vector3.new(-size.X/2, -size.Y/2, size.Z/2)
-        local bottomRightFront = humanoidRootPart.Position + Vector3.new(size.X/2, -size.Y/2, size.Z/2)
-
-        local topLeftBack = humanoidRootPart.Position + Vector3.new(-size.X/2, size.Y/2, -size.Z/2)
-        local topRightBack = humanoidRootPart.Position + Vector3.new(size.X/2, size.Y/2, -size.Z/2)
-        local bottomLeftBack = humanoidRootPart.Position + Vector3.new(-size.X/2, -size.Y/2, -size.Z/2)
-        local bottomRightBack = humanoidRootPart.Position + Vector3.new(size.X/2, -size.Y/2, -size.Z/2)
-
-        -- Calculate screen positions for each corner
-        local topLeftFront2D = camera:WorldToViewportPoint(topLeftFront)
-        local topRightFront2D = camera:WorldToViewportPoint(topRightFront)
-        local bottomLeftFront2D = camera:WorldToViewportPoint(bottomLeftFront)
-        local bottomRightFront2D = camera:WorldToViewportPoint(bottomRightFront)
-
-        local topLeftBack2D = camera:WorldToViewportPoint(topLeftBack)
-        local topRightBack2D = camera:WorldToViewportPoint(topRightBack)
-        local bottomLeftBack2D = camera:WorldToViewportPoint(bottomLeftBack)
-        local bottomRightBack2D = camera:WorldToViewportPoint(bottomRightBack)
-
-        -- Update 3D box drawing
-        local parts = box.parts
-        parts["top"].From = Vector2.new(topLeftFront2D.X, topLeftFront2D.Y)
-        parts["top"].To = Vector2.new(topRightFront2D.X, topRightFront2D.Y)
-        parts["bottom"].From = Vector2.new(bottomLeftFront2D.X, bottomLeftFront2D.Y)
-        parts["bottom"].To = Vector2.new(bottomRightFront2D.X, bottomRightFront2D.Y)
-        parts["left"].From = Vector2.new(topLeftFront2D.X, topLeftFront2D.Y)
-        parts["left"].To = Vector2.new(bottomLeftFront2D.X, bottomLeftFront2D.Y)
-        parts["right"].From = Vector2.new(topRightFront2D.X, topRightFront2D.Y)
-        parts["right"].To = Vector2.new(bottomRightFront2D.X, bottomRightFront2D.Y)
-        parts["front"].From = Vector2.new(topLeftFront2D.X, topLeftFront2D.Y)
-        parts["front"].To = Vector2.new(topLeftBack2D.X, topLeftBack2D.Y)
-        parts["back"].From = Vector2.new(topRightFront2D.X, topRightFront2D.Y)
-        parts["back"].To = Vector2.new(topRightBack2D.X, topRightBack2D.Y)
-
-        -- Health bar and username updates
-        local healthRatio = humanoid.Health / humanoid.MaxHealth
-        box.healthBar.From = Vector2.new(bottomRightFront2D.X + 5, bottomRightFront2D.Y)
-        box.healthBar.To = Vector2.new(bottomRightFront2D.X + 5, topRightFront2D.Y * healthRatio)
-        box.healthBar.Visible = true
-
-        box.username.Position = Vector2.new((topLeftFront2D.X + topRightFront2D.X) / 2, topLeftFront2D.Y - 20)
-        box.username.Text = player.Name
-        box.username.Visible = true
-
-        for _, part in pairs(parts) do
-            part.Visible = true
-        end
-    else
-        -- Hide box when character is not visible
-        for _, part in pairs(boxes[character].parts) do
-            part.Visible = false
-        end
-        boxes[character].healthBar.Visible = false
-        boxes[character].username.Visible = false
-    end
-end
-
--- Function to remove the ESP box when the player leaves or dies
-local function removeBox(character)
-    if boxes[character] then
-        for _, part in pairs(boxes[character].parts) do
-            part:Remove()
-        end
-        boxes[character].healthBar:Remove()
-        boxes[character].username:Remove()
-        boxes[character] = nil
-    end
-end
-
--- Function to update ESP for all players
-local function updateESP()
-    while espEnabled do
-        for _, player in pairs(players:GetPlayers()) do
-            if player ~= players.LocalPlayer then
-                local character = player.Character
-                if character and player.Character:FindFirstChild("Humanoid") and player.Character:FindFirstChild("Humanoid").Health > 0 then
-                    update3DBox(player, character)
-                else
-                    removeBox(player.Character)
+            -- Update health and box constantly
+            local function updateESP()
+                while character and character.Parent do
+                    healthBarFill.Size = UDim2.new(humanoid.Health / humanoid.MaxHealth, 0, 1, 0)
+                    healthLabel.Text = math.floor((humanoid.Health / humanoid.MaxHealth) * 100) .. "%"
+                    boxAdornment.Size = humanoidRootPart.Size + Vector3.new(1, 2, 1) -- Keeps box size updated
+                    wait(0.1)
                 end
             end
+
+            -- Cleanup ESP when player dies or leaves
+            humanoid.Died:Connect(function()
+                billboardGui:Destroy()
+                boxAdornment:Destroy()
+            end)
+
+            -- Parent everything to character
+            billboardGui.Parent = character
+            boxAdornment.Parent = character
+
+            spawn(updateESP)
         end
-        runService.RenderStepped:Wait()
     end
 end
 
--- Cleanup when a player leaves or dies
-players.PlayerRemoving:Connect(function(player)
+-- Function to remove ESP
+local function removeESP(player)
     if player.Character then
-        removeBox(player.Character)
-    end
-end)
-
-players.PlayerAdded:Connect(function(player)
-    player.CharacterRemoving:Connect(function(character)
-        removeBox(character)
-    end)
-end)
-
--- Start and stop methods for ESP
-function ESP.start()
-    if not espEnabled then
-        espEnabled = true
-        updateESP()
-    end
-end
-
-function ESP.stop()
-    espEnabled = false
-    for _, box in pairs(boxes) do
-        for _, part in pairs(box.parts) do
-            part:Remove()
+        for _, v in pairs(player.Character:GetChildren()) do
+            if v:IsA("BillboardGui") or v:IsA("BoxHandleAdornment") then
+                v:Destroy()
+            end
         end
-        box.healthBar:Remove()
-        box.username:Remove()
     end
-    boxes = {}
 end
 
-return ESP
+-- Enable ESP for all players
+local function enableESP()
+    for _, player in pairs(Players:GetPlayers()) do
+        createESP(player)
+    end
+
+    -- Add ESP to new players joining
+    Players.PlayerAdded:Connect(function(player)
+        player.CharacterAdded:Connect(function()
+            createESP(player)
+        end)
+    end)
+end
+
+-- Disable ESP for all players
+local function disableESP()
+    for _, player in pairs(Players:GetPlayers()) do
+        removeESP(player)
+    end
+end
+
+-- Rayfield UI Integration
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+local Window = Rayfield:CreateWindow({
+    Name = "TrueShot",
+    LoadingTitle = "TrueShot.cc the best script!",
+    ConfigurationSaving = {
+        Enabled = false,
+        FolderName = "trueshot",
+        FileName = "diddy"
+    }
+})
+
+local MainTab = Window:CreateTab("Home", 4483362458)
+
+local ESPSection = MainTab:CreateSection("ESP")
+
+local EESP = MainTab:CreateButton({
+    Name = "Enable ESP",
+    Callback = function()
+        enableESP()
+    end,
+})
+
+local DESP = MainTab:CreateButton({
+    Name = "Disable ESP",
+    Callback = function()
+        disableESP()
+    end,
+})
