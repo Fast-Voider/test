@@ -19,13 +19,6 @@ local function create3DBox()
         box["line" .. i].Visible = false
     end
 
-    -- Health bar
-    box.healthBar = Drawing.new("Line")
-    box.healthBar.Color = Color3.fromRGB(255, 0, 0)  -- Red color for health
-    box.healthBar.Thickness = 2
-    box.healthBar.Transparency = 1
-    box.healthBar.Visible = false
-
     -- Username
     box.username = Drawing.new("Text")
     box.username.Color = Color3.fromRGB(255, 255, 255)  -- White color for text
