@@ -1,190 +1,148 @@
+-- Create a table to hold the ESP functionality
 local OutlineESP = {}
-local players = game:GetService("Players")
-local runService = game:GetService("RunService")
-local camera = workspace.CurrentCamera
 
+-- Track enabled/disabled state and team check state
 local espEnabled = false
-local outlines = {}
+local highlightInstances = {}
+local teamCheck = false  -- Default is not to check teams
 
--- Function to create the 3D box components for a character
-local function create3DBox()
-    local box = {}
+-- Get the local player (your player)
+local localPlayer = game.Players.LocalPlayer
 
-    -- Lines for the 3D box
-    for i = 1, 12 do
-        box["line" .. i] = Drawing.new("Line")
-        box["line" .. i].Color = Color3.fromRGB(0, 255, 0)  -- Green lines
-        box["line" .. i].Thickness = 2
-        box["line" .. i].Transparency = 1
-        box["line" .. i].Visible = false
+-- Function to check if a player is on the same team as the local player
+local function isSameTeam(player)
+    if not teamCheck then return false end  -- If teamCheck is off, ignore team comparison
+    if player.Team == localPlayer.Team then
+        return true
     end
-
-    -- Username
-    box.username = Drawing.new("Text")
-    box.username.Color = Color3.fromRGB(255, 255, 255)  -- White color for text
-    box.username.Size = 18
-    box.username.Center = true
-    box.username.Outline = true
-    box.username.Visible = false
-
-    -- Health percentage
-    box.healthText = Drawing.new("Text")
-    box.healthText.Color = Color3.fromRGB(255, 255, 255)  -- White text for health percentage
-    box.healthText.Size = 16
-    box.healthText.Center = true
-    box.healthText.Outline = true
-    box.healthText.Visible = false
-
-    return box
+    return false
 end
 
--- Function to draw the 3D bounding box for a character
-local function draw3DBox(player, character)
-    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
-    local humanoid = character:FindFirstChild("Humanoid")
-    
-    if humanoidRootPart and humanoid then
-        -- Create a 3D box if not already created
-        outlines[character] = outlines[character] or create3DBox()
-        local box = outlines[character]
+-- Function to create an outline for a given model (like a player or NPC)
+local function createOutline(target, player)
+    -- Don't create an outline for the local player or same team players (if team check is enabled)
+    if player == localPlayer or isSameTeam(player) then return end
 
-        -- Character's bounding box size
-        local size = Vector3.new(4, 6, 2)  -- Adjust to fit player character size (Width, Height, Depth)
+    -- Create a Highlight instance
+    local highlight = Instance.new("Highlight")
+    highlight.Parent = target  -- Attach to the target model
 
-        -- Define 8 corners of the 3D box
-        local corners = {
-            -- Bottom corners
-            humanoidRootPart.Position + Vector3.new(-size.X/2, -size.Y/2, -size.Z/2),
-            humanoidRootPart.Position + Vector3.new(size.X/2, -size.Y/2, -size.Z/2),
-            humanoidRootPart.Position + Vector3.new(size.X/2, -size.Y/2, size.Z/2),
-            humanoidRootPart.Position + Vector3.new(-size.X/2, -size.Y/2, size.Z/2),
-            -- Top corners
-            humanoidRootPart.Position + Vector3.new(-size.X/2, size.Y/2, -size.Z/2),
-            humanoidRootPart.Position + Vector3.new(size.X/2, size.Y/2, -size.Z/2),
-            humanoidRootPart.Position + Vector3.new(size.X/2, size.Y/2, size.Z/2),
-            humanoidRootPart.Position + Vector3.new(-size.X/2, size.Y/2, size.Z/2),
-        }
+    -- Customize the highlight to ONLY show the outline, no fill
+    highlight.FillTransparency = 1  -- Fully transparent fill
+    highlight.OutlineTransparency = 0  -- No transparency for the outline
+    highlight.OutlineColor = Color3.new(1, 1, 1)  -- White outline color
 
-        -- Convert 3D corners to 2D screen positions
-        local screenCorners = {}
-        local isVisible = true
-        for i, corner in ipairs(corners) do
-            local screenPos, visible = camera:WorldToViewportPoint(corner)
-            screenCorners[i] = Vector2.new(screenPos.X, screenPos.Y)
-            if not visible then
-                isVisible = false
-            end
-        end
+    -- Ensure the outline is visible through walls
+    highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
 
-        -- If character is visible and on screen
-        if isVisible and screenCorners[1].X > 0 then
-            -- Draw the 3D box (12 lines connecting the 8 corners)
-            box.line1.From, box.line1.To = screenCorners[1], screenCorners[2] -- Bottom front
-            box.line2.From, box.line2.To = screenCorners[2], screenCorners[3] -- Bottom right
-            box.line3.From, box.line3.To = screenCorners[3], screenCorners[4] -- Bottom back
-            box.line4.From, box.line4.To = screenCorners[4], screenCorners[1] -- Bottom left
+    -- Store the highlight instance, keyed by the player it's applied to
+    highlightInstances[player] = highlight
+end
 
-            box.line5.From, box.line5.To = screenCorners[5], screenCorners[6] -- Top front
-            box.line6.From, box.line6.To = screenCorners[6], screenCorners[7] -- Top right
-            box.line7.From, box.line7.To = screenCorners[7], screenCorners[8] -- Top back
-            box.line8.From, box.line8.To = screenCorners[8], screenCorners[5] -- Top left
+-- Function to remove the outline for a specific player
+local function removeOutline(player)
+    local highlight = highlightInstances[player]
+    if highlight then
+        highlight:Destroy()  -- Clean up the Highlight instance
+        highlightInstances[player] = nil  -- Remove from the table
+    end
+end
 
-            box.line9.From, box.line9.To = screenCorners[1], screenCorners[5] -- Vertical front-left
-            box.line10.From, box.line10.To = screenCorners[2], screenCorners[6] -- Vertical front-right
-            box.line11.From, box.line11.To = screenCorners[3], screenCorners[7] -- Vertical back-right
-            box.line12.From, box.line12.To = screenCorners[4], screenCorners[8] -- Vertical back-left
+-- Function to reapply the ESP outlines after a team check toggle
+local function updateOutlines()
+    -- Remove all existing outlines
+    for player, _ in pairs(highlightInstances) do
+        removeOutline(player)  -- Remove the highlight for each player
+    end
 
-            -- Make all lines visible
-            for i = 1, 12 do
-                box["line" .. i].Visible = true
-            end
-
-            -- Update the health bar (right side of the box)
-            local healthRatio = humanoid.Health / humanoid.MaxHealth
-
-            -- Update the username display (above the box)
-            box.username.Position = (screenCorners[5] + screenCorners[6]) / 2 + Vector2.new(0, -20)
-            box.username.Text = player.Name
-            box.username.Visible = true
-
-            -- Update health percentage display (above the health bar)
-            box.healthText.Position = screenCorners[7] + Vector2.new(5, -15)
-            box.healthText.Text = string.format("%d%%", math.floor(healthRatio * 100))
-            box.healthText.Visible = true
-        else
-            -- Hide the 3D box and health bar if character is not visible
-            for i = 1, 12 do
-                box["line" .. i].Visible = false
-            end
-
-            box.username.Visible = false
-            box.healthText.Visible = false
+    -- Reapply ESP to all players based on the current team check status
+    for _, player in pairs(game.Players:GetPlayers()) do
+        if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            createOutline(player.Character, player)
         end
     end
 end
 
--- Function to remove ESP components when a player leaves/dies
-local function remove3DBox(character)
-    if outlines[character] then
-        for i = 1, 12 do
-            outlines[character]["line" .. i]:Remove()
-        end
-        outlines[character].username:Remove()
-        outlines[character].healthText:Remove()
-        outlines[character] = nil
+-- Function to handle a player's character spawning and apply the ESP
+local function applyOutlineToPlayer(player)
+    -- Apply ESP if the player is valid and not on the same team (if teamCheck is enabled)
+    if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+        createOutline(player.Character, player)
     end
-end
 
--- Function to update the 3D boxes for all players
-local function updateOutlineESP()
-    while espEnabled do
-        for _, player in pairs(players:GetPlayers()) do
-            if player ~= players.LocalPlayer then
-                local character = player.Character
-                if character and character:FindFirstChild("Humanoid") and character.Humanoid.Health > 0 then
-                    draw3DBox(player, character)
-                else
-                    remove3DBox(character)
-                end
-            end
-        end
-        runService.RenderStepped:Wait() -- Update every frame
-    end
-end
-
--- Cleanup when a player dies or leaves
-players.PlayerRemoving:Connect(function(player)
-    if player.Character then
-        remove3DBox(player.Character)
-    end
-end)
-
-players.PlayerAdded:Connect(function(player)
-    player.CharacterRemoving:Connect(function(character)
-        remove3DBox(character)
+    -- Apply outline whenever the character respawns
+    player.CharacterAdded:Connect(function(character)
+        wait(1)  -- Optional: small delay to ensure all character parts are loaded
+        createOutline(character, player)
     end)
-end)
+end
 
--- Method to start the 3D box ESP
+-- Function to start the ESP
 function OutlineESP.start()
-    if not espEnabled then
-        espEnabled = true
-        coroutine.wrap(updateOutlineESP)() -- Run the update function in a coroutine
+    if espEnabled then return end  -- Prevent starting multiple times
+    espEnabled = true
+
+    -- Apply the ESP to all existing players
+    for _, player in pairs(game.Players:GetPlayers()) do
+        applyOutlineToPlayer(player)
     end
+
+    -- Connect a function to apply ESP to players that join later
+    game.Players.PlayerAdded:Connect(function(player)
+        applyOutlineToPlayer(player)
+    end)
+
+    -- Remove ESP for players who leave the game
+    game.Players.PlayerRemoving:Connect(function(player)
+        removeOutline(player)  -- Remove the outline for that player's character
+    end)
 end
 
--- Method to stop the 3D box ESP
+-- Function to stop the ESP
 function OutlineESP.stop()
+    if not espEnabled then return end  -- Prevent stopping multiple times
     espEnabled = false
-    -- Hide and clean up all boxes
-    for _, box in pairs(outlines) do
-        for i = 1, 12 do
-            box["line" .. i]:Remove()
+    -- Clean up all highlights when ESP is disabled
+    for _, highlight in pairs(highlightInstances) do
+        if highlight then
+            highlight:Destroy()
         end
-        box.username:Remove()
-        box.healthText:Remove()
     end
-    outlines = {}
+    highlightInstances = {}  -- Clear the table
 end
 
+-- Function to toggle the ESP on/off
+function OutlineESP.Toggle()
+    if espEnabled then
+        OutlineESP.stop()
+    else
+        OutlineESP.start()
+    end
+end
+
+-- Function to enable team checking (will only highlight enemies)
+function OutlineESP.TeamCheckTrue()
+    teamCheck = true
+    if espEnabled then
+        updateOutlines()  -- Reapply outlines based on the new teamCheck status
+    end
+end
+
+-- Function to disable team checking (will highlight everyone except the local player)
+function OutlineESP.TeamCheckFalse()
+    teamCheck = false
+    if espEnabled then
+        updateOutlines()  -- Reapply outlines based on the new teamCheck status
+    end
+end
+
+-- Function to toggle team checking on/off
+function OutlineESP.TeamCheck()
+    teamCheck = not teamCheck
+    if espEnabled then
+        updateOutlines()  -- Reapply outlines based on the new teamCheck status
+    end
+end
+
+-- Return the module
 return OutlineESP
