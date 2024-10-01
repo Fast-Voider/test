@@ -113,33 +113,3 @@ local function disableESP()
     end
 end
 
--- Rayfield UI Integration
-local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
-
-local Window = Rayfield:CreateWindow({
-    Name = "TrueShot",
-    LoadingTitle = "TrueShot.cc the best script!",
-    ConfigurationSaving = {
-        Enabled = false,
-        FolderName = "trueshot",
-        FileName = "diddy"
-    }
-})
-
-local MainTab = Window:CreateTab("Home", 4483362458)
-
-local ESPSection = MainTab:CreateSection("ESP")
-
-local EESP = MainTab:CreateButton({
-    Name = "Enable ESP",
-    Callback = function()
-        enableESP()
-    end,
-})
-
-local DESP = MainTab:CreateButton({
-    Name = "Disable ESP",
-    Callback = function()
-        disableESP()
-    end,
-})
