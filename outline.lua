@@ -1,115 +1,101 @@
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
+local esp = {}
 
--- Function to create ESP for a player
-local function createESP(player)
-    if player ~= LocalPlayer then
-        local character = player.Character
-        if character and character:FindFirstChild("HumanoidRootPart") then
-            local humanoidRootPart = character.HumanoidRootPart
-            local head = character:FindFirstChild("Head")
-            local humanoid = character:FindFirstChild("Humanoid")
+function esp.start()
+    esp.isActive = true
 
-            -- Create BillboardGui for username and health percentage
-            local billboardGui = Instance.new("BillboardGui")
-            billboardGui.Adornee = head
-            billboardGui.Size = UDim2.new(0, 100, 0, 50)
-            billboardGui.AlwaysOnTop = true
-            billboardGui.StudsOffset = Vector3.new(0, 3, 0)
+    local Players = game:GetService("Players")
+    local LocalPlayer = Players.LocalPlayer
 
-            -- Add username label
-            local usernameLabel = Instance.new("TextLabel", billboardGui)
-            usernameLabel.Size = UDim2.new(1, 0, 0.5, 0)
-            usernameLabel.BackgroundTransparency = 1
-            usernameLabel.Text = player.Name
-            usernameLabel.TextColor3 = Color3.new(1, 1, 1) -- White color
-            usernameLabel.TextStrokeTransparency = 0.5
-            usernameLabel.TextScaled = true
+    -- Function to create a 3D box and health bar for a player
+    local function createESP(player)
+        local box = Instance.new("BoxHandleAdornment")
+        box.Size = Vector3.new(2, 5, 1) -- Size of the box
+        box.Adornee = player.Character
+        box.Color3 = Color3.new(0, 1, 0) -- Green color for the box
+        box.Transparency = 0.5
+        box.ZIndex = 0
+        box.AlwaysOnTop = true
+        box.Parent = player.Character
 
-            -- Add health percentage label
-            local healthLabel = Instance.new("TextLabel", billboardGui)
-            healthLabel.Size = UDim2.new(1, 0, 0.5, 0)
-            healthLabel.Position = UDim2.new(0, 0, 0.5, 0)
-            healthLabel.BackgroundTransparency = 1
-            healthLabel.TextColor3 = Color3.new(0, 1, 0) -- Green color for health percentage
-            healthLabel.TextStrokeTransparency = 0.5
-            healthLabel.TextScaled = true
+        -- Create health bar
+        local healthBarGui = Instance.new("BillboardGui")
+        healthBarGui.Size = UDim2.new(1, 0, 0.2, 0) -- Health bar size
+        healthBarGui.Adornee = player.Character.Head
+        healthBarGui.ExtentsOffset = Vector3.new(0, 2, 0) -- Position above head
+        healthBarGui.Parent = player.Character
 
-            -- Create a health bar
-            local healthBar = Instance.new("Frame", billboardGui)
-            healthBar.Size = UDim2.new(0.2, 0, 1, 0) -- Health bar size
-            healthBar.Position = UDim2.new(1.1, 0, 0, 0) -- Position it to the right of the character
-            healthBar.BackgroundTransparency = 0.3
-            healthBar.BackgroundColor3 = Color3.new(1, 0, 0) -- Red color for health bar background
+        local healthBar = Instance.new("Frame")
+        healthBar.Size = UDim2.new(1, 0, 1, 0)
+        healthBar.BackgroundColor3 = Color3.new(1, 0, 0) -- Red for the health bar
+        healthBar.Parent = healthBarGui
 
-            local healthBarFill = Instance.new("Frame", healthBar)
-            healthBarFill.Size = UDim2.new(humanoid.Health / humanoid.MaxHealth, 0, 1, 0) -- Set based on current health
-            healthBarFill.BackgroundColor3 = Color3.new(0, 1, 0) -- Green color for health bar fill
+        local healthLabel = Instance.new("TextLabel")
+        healthLabel.Size = UDim2.new(1, 0, 0.5, 0)
+        healthLabel.Position = UDim2.new(0, 0, 0, 0)
+        healthLabel.BackgroundTransparency = 1
+        healthLabel.TextColor3 = Color3.new(1, 1, 1)
+        healthLabel.TextScaled = true
+        healthLabel.Parent = healthBarGui
 
-            -- 3D Box ESP
-            local boxAdornment = Instance.new("BoxHandleAdornment")
-            boxAdornment.Adornee = humanoidRootPart
-            boxAdornment.Size = humanoidRootPart.Size + Vector3.new(1, 2, 1)
-            boxAdornment.AlwaysOnTop = true
-            boxAdornment.ZIndex = 5
-            boxAdornment.Color3 = Color3.new(0, 1, 0) -- Green box color
-            boxAdornment.Transparency = 0.3
-            boxAdornment.Parent = humanoidRootPart
+        return box, healthBar, healthLabel
+    end
 
-            -- Update health and box constantly
-            local function updateESP()
-                while character and character.Parent do
-                    healthBarFill.Size = UDim2.new(humanoid.Health / humanoid.MaxHealth, 0, 1, 0)
-                    healthLabel.Text = math.floor((humanoid.Health / humanoid.MaxHealth) * 100) .. "%"
-                    boxAdornment.Size = humanoidRootPart.Size + Vector3.new(1, 2, 1) -- Keeps box size updated
-                    wait(0.1)
-                end
-            end
-
-            -- Cleanup ESP when player dies or leaves
-            humanoid.Died:Connect(function()
-                billboardGui:Destroy()
-                boxAdornment:Destroy()
-            end)
-
-            -- Parent everything to character
-            billboardGui.Parent = character
-            boxAdornment.Parent = character
-
-            spawn(updateESP)
+    -- Function to update the ESP for a player
+    local function updateESP(player, box, healthBar, healthLabel)
+        local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            box.Size = Vector3.new(2, humanoid.Health / humanoid.MaxHealth * 5, 1) -- Adjust box height based on health
+            healthBar.Size = UDim2.new(1, 0, humanoid.Health / humanoid.MaxHealth, 0) -- Adjust health bar size
+            healthLabel.Text = string.format("%.0f%%", (humanoid.Health / humanoid.MaxHealth) * 100) -- Show health percentage
+        else
+            box:Destroy()
+            healthBar:Destroy()
         end
     end
-end
 
--- Function to remove ESP
-local function removeESP(player)
-    if player.Character then
-        for _, v in pairs(player.Character:GetChildren()) do
-            if v:IsA("BillboardGui") or v:IsA("BoxHandleAdornment") then
-                v:Destroy()
+    -- Function to handle when a player is added
+    local function onPlayerAdded(player)
+        player.CharacterAdded:Connect(function(character)
+            local box, healthBar, healthLabel = createESP(player)
+
+            -- Update ESP while the player is in the game
+            while esp.isActive and player.Character do
+                updateESP(player, box, healthBar, healthLabel)
+                wait(0.1)
             end
-        end
-    end
-end
 
--- Enable ESP for all players
-local function enableESP()
-    for _, player in pairs(Players:GetPlayers()) do
-        createESP(player)
-    end
-
-    -- Add ESP to new players joining
-    Players.PlayerAdded:Connect(function(player)
-        player.CharacterAdded:Connect(function()
-            createESP(player)
+            -- Cleanup when the player leaves
+            box:Destroy()
+            healthBar:Destroy()
         end)
-    end)
+    end
+
+    -- Connect to existing players
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer then
+            onPlayerAdded(player)
+        end
+    end
+
+    -- Connect to player joining
+    Players.PlayerAdded:Connect(onPlayerAdded)
 end
 
--- Disable ESP for all players
-local function disableESP()
-    for _, player in pairs(Players:GetPlayers()) do
-        removeESP(player)
+function esp.stop()
+    esp.isActive = false
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character then
+            -- Clean up any ESP components
+            local box = player.Character:FindFirstChildOfClass("BoxHandleAdornment")
+            if box then
+                box:Destroy()
+            end
+            local healthBarGui = player.Character:FindFirstChildOfClass("BillboardGui")
+            if healthBarGui then
+                healthBarGui:Destroy()
+            end
+        end
     end
 end
 
+return esp
