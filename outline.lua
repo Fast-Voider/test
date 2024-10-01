@@ -21,17 +21,22 @@ local function drawOutline(character)
     if not character then return end
 
     local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
-    if humanoidRootPart then
+    local head = character:FindFirstChild("Head")
+    local torso = character:FindFirstChild("UpperTorso") or character:FindFirstChild("Torso")
+
+    if humanoidRootPart and head and torso then
         -- Create an outline if not already created
         outlines[character] = outlines[character] or createOutline()
 
-        local rootScreenPos, rootVisible = camera:WorldToViewportPoint(humanoidRootPart.Position)
+        local headPos, headVisible = camera:WorldToViewportPoint(head.Position)
+        local torsoPos, torsoVisible = camera:WorldToViewportPoint(torso.Position)
+        local hrpPos, hrpVisible = camera:WorldToViewportPoint(humanoidRootPart.Position)
 
-        -- Check if the character is in front of the camera and visible
-        if rootVisible and rootScreenPos.Z > 0 then
+        -- If any of the key parts are visible and in front of the camera
+        if headVisible and torsoVisible and hrpVisible and hrpPos.Z > 0 then
+            -- Define the 3D bounds of the character's box using Head and Torso positions
             local size = character:GetExtentsSize()
-
-            -- Get the screen positions for the four corners of the bounding box
+            
             local topLeft = camera:WorldToViewportPoint(humanoidRootPart.Position + Vector3.new(-size.X/2, size.Y/2, 0))
             local topRight = camera:WorldToViewportPoint(humanoidRootPart.Position + Vector3.new(size.X/2, size.Y/2, 0))
             local bottomLeft = camera:WorldToViewportPoint(humanoidRootPart.Position + Vector3.new(-size.X/2, -size.Y/2, 0))
