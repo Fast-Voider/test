@@ -6,11 +6,11 @@ local camera = workspace.CurrentCamera
 local espEnabled = false
 local outlines = {}
 
--- Function to create the outline and UI components for a character
-local function createOutline()
+-- Function to create the 3D box components for a character
+local function create3DBox()
     local box = {}
 
-    -- Create 12 lines for a 3D box
+    -- Lines for the 3D box
     for i = 1, 12 do
         box["line" .. i] = Drawing.new("Line")
         box["line" .. i].Color = Color3.fromRGB(0, 255, 0)  -- Green lines
@@ -19,13 +19,12 @@ local function createOutline()
         box["line" .. i].Visible = false
     end
 
-    -- Health bar, 3D version
-    box.healthBar = Instance.new("Part")
-    box.healthBar.Anchored = true
-    box.healthBar.CanCollide = false
-    box.healthBar.Size = Vector3.new(0.2, 5, 0.2)  -- Adjustable size
-    box.healthBar.Color = Color3.fromRGB(0, 255, 0)  -- Start with green
-    box.healthBar.Parent = workspace
+    -- Health bar
+    box.healthBar = Drawing.new("Line")
+    box.healthBar.Color = Color3.fromRGB(255, 0, 0)  -- Red color for health
+    box.healthBar.Thickness = 2
+    box.healthBar.Transparency = 1
+    box.healthBar.Visible = false
 
     -- Username
     box.username = Drawing.new("Text")
@@ -46,107 +45,117 @@ local function createOutline()
     return box
 end
 
--- Function to update the outline, health bar, username, and health percentage
-local function drawOutline(player, character)
-    if not character then return end
-
+-- Function to draw the 3D bounding box for a character
+local function draw3DBox(player, character)
     local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
-    local head = character:FindFirstChild("Head")
     local humanoid = character:FindFirstChild("Humanoid")
-
-    if humanoidRootPart and head and humanoid then
-        -- Create an outline if not already created
-        outlines[character] = outlines[character] or createOutline()
-
-        local rootPos, rootVisible = camera:WorldToViewportPoint(humanoidRootPart.Position)
-        local headPos = camera:WorldToViewportPoint(head.Position)
-
-        -- Field of view check: If character is not visible, don't display the ESP
-        if not rootVisible or rootPos.Z < 0 then
-            outlines[character].username.Visible = false
-            outlines[character].healthText.Visible = false
-            for i = 1, 12 do
-                outlines[character]["line" .. i].Visible = false
-            end
-            outlines[character].healthBar.Transparency = 1 -- Hide health bar
-            return
-        end
-
-        -- Create box and 3D outline
-        local size = character:GetExtentsSize() * 1.5
+    
+    if humanoidRootPart and humanoid then
+        -- Create a 3D box if not already created
+        outlines[character] = outlines[character] or create3DBox()
         local box = outlines[character]
 
+        -- Character's bounding box size
+        local size = Vector3.new(4, 6, 2)  -- Adjust to fit player character size (Width, Height, Depth)
+
+        -- Define 8 corners of the 3D box
         local corners = {
-            humanoidRootPart.Position + Vector3.new(-size.X / 2, size.Y / 2, -size.Z / 2),  -- Top Left Front
-            humanoidRootPart.Position + Vector3.new(size.X / 2, size.Y / 2, -size.Z / 2),   -- Top Right Front
-            humanoidRootPart.Position + Vector3.new(size.X / 2, -size.Y / 2, -size.Z / 2),  -- Bottom Right Front
-            humanoidRootPart.Position + Vector3.new(-size.X / 2, -size.Y / 2, -size.Z / 2), -- Bottom Left Front
-            humanoidRootPart.Position + Vector3.new(-size.X / 2, size.Y / 2, size.Z / 2),   -- Top Left Back
-            humanoidRootPart.Position + Vector3.new(size.X / 2, size.Y / 2, size.Z / 2),    -- Top Right Back
-            humanoidRootPart.Position + Vector3.new(size.X / 2, -size.Y / 2, size.Z / 2),   -- Bottom Right Back
-            humanoidRootPart.Position + Vector3.new(-size.X / 2, -size.Y / 2, size.Z / 2),  -- Bottom Left Back
+            -- Bottom corners
+            humanoidRootPart.Position + Vector3.new(-size.X/2, -size.Y/2, -size.Z/2),
+            humanoidRootPart.Position + Vector3.new(size.X/2, -size.Y/2, -size.Z/2),
+            humanoidRootPart.Position + Vector3.new(size.X/2, -size.Y/2, size.Z/2),
+            humanoidRootPart.Position + Vector3.new(-size.X/2, -size.Y/2, size.Z/2),
+            -- Top corners
+            humanoidRootPart.Position + Vector3.new(-size.X/2, size.Y/2, -size.Z/2),
+            humanoidRootPart.Position + Vector3.new(size.X/2, size.Y/2, -size.Z/2),
+            humanoidRootPart.Position + Vector3.new(size.X/2, size.Y/2, size.Z/2),
+            humanoidRootPart.Position + Vector3.new(-size.X/2, size.Y/2, size.Z/2),
         }
 
-        -- Define the 12 lines for the 3D box
-        local lines = {
-            {1, 2}, {2, 3}, {3, 4}, {4, 1}, -- Front face
-            {5, 6}, {6, 7}, {7, 8}, {8, 5}, -- Back face
-            {1, 5}, {2, 6}, {3, 7}, {4, 8}, -- Connecting lines
-        }
-
-        for i, line in ipairs(lines) do
-            local p1, p2 = camera:WorldToViewportPoint(corners[line[1]]), camera:WorldToViewportPoint(corners[line[2]])
-            box["line" .. i].From = Vector2.new(p1.X, p1.Y)
-            box["line" .. i].To = Vector2.new(p2.X, p2.Y)
-            box["line" .. i].Visible = true
+        -- Convert 3D corners to 2D screen positions
+        local screenCorners = {}
+        local isVisible = true
+        for i, corner in ipairs(corners) do
+            local screenPos, visible = camera:WorldToViewportPoint(corner)
+            screenCorners[i] = Vector2.new(screenPos.X, screenPos.Y)
+            if not visible then
+                isVisible = false
+            end
         end
 
-        -- Update the health bar (3D)
-        local healthRatio = humanoid.Health / humanoid.MaxHealth
-        box.healthBar.Size = Vector3.new(0.2, 5 * healthRatio, 0.2)  -- Adjust size based on health
-        box.healthBar.CFrame = CFrame.new(humanoidRootPart.Position + Vector3.new(size.X / 2 + 0.5, 2.5 * healthRatio, 0)) -- Position next to the box
-        box.healthBar.Color = Color3.fromRGB(255 * (1 - healthRatio), 255 * healthRatio, 0) -- Gradient from red to green
+        -- If character is visible and on screen
+        if isVisible and screenCorners[1].X > 0 then
+            -- Draw the 3D box (12 lines connecting the 8 corners)
+            box.line1.From, box.line1.To = screenCorners[1], screenCorners[2] -- Bottom front
+            box.line2.From, box.line2.To = screenCorners[2], screenCorners[3] -- Bottom right
+            box.line3.From, box.line3.To = screenCorners[3], screenCorners[4] -- Bottom back
+            box.line4.From, box.line4.To = screenCorners[4], screenCorners[1] -- Bottom left
 
-        -- Update the username display (above the box)
-        box.username.Position = Vector2.new(rootPos.X, rootPos.Y - 20)
-        box.username.Text = player.Name
-        box.username.Visible = true
+            box.line5.From, box.line5.To = screenCorners[5], screenCorners[6] -- Top front
+            box.line6.From, box.line6.To = screenCorners[6], screenCorners[7] -- Top right
+            box.line7.From, box.line7.To = screenCorners[7], screenCorners[8] -- Top back
+            box.line8.From, box.line8.To = screenCorners[8], screenCorners[5] -- Top left
 
-        -- Update health percentage display (above the health bar)
-        box.healthText.Position = Vector2.new(rootPos.X, rootPos.Y + 30)
-        box.healthText.Text = string.format("%d%%", math.floor(healthRatio * 100))
-        box.healthText.Visible = true
-    else
-        -- If character is missing or dead, hide everything
-        removeOutline(character)
+            box.line9.From, box.line9.To = screenCorners[1], screenCorners[5] -- Vertical front-left
+            box.line10.From, box.line10.To = screenCorners[2], screenCorners[6] -- Vertical front-right
+            box.line11.From, box.line11.To = screenCorners[3], screenCorners[7] -- Vertical back-right
+            box.line12.From, box.line12.To = screenCorners[4], screenCorners[8] -- Vertical back-left
+
+            -- Make all lines visible
+            for i = 1, 12 do
+                box["line" .. i].Visible = true
+            end
+
+            -- Update the health bar (right side of the box)
+            local healthRatio = humanoid.Health / humanoid.MaxHealth
+            box.healthBar.From = screenCorners[3] + Vector2.new(5, 0)  -- Start at the bottom right corner
+            box.healthBar.To = screenCorners[7] + Vector2.new(5, -(screenCorners[7].Y - screenCorners[3].Y) * (1 - healthRatio))
+            box.healthBar.Visible = true
+
+            -- Update the username display (above the box)
+            box.username.Position = (screenCorners[5] + screenCorners[6]) / 2 + Vector2.new(0, -20)
+            box.username.Text = player.Name
+            box.username.Visible = true
+
+            -- Update health percentage display (above the health bar)
+            box.healthText.Position = screenCorners[7] + Vector2.new(5, -15)
+            box.healthText.Text = string.format("%d%%", math.floor(healthRatio * 100))
+            box.healthText.Visible = true
+        else
+            -- Hide the 3D box and health bar if character is not visible
+            for i = 1, 12 do
+                box["line" .. i].Visible = false
+            end
+            box.healthBar.Visible = false
+            box.username.Visible = false
+            box.healthText.Visible = false
+        end
     end
 end
 
 -- Function to remove ESP components when a player leaves/dies
-local function removeOutline(character)
+local function remove3DBox(character)
     if outlines[character] then
         for i = 1, 12 do
             outlines[character]["line" .. i]:Remove()
         end
-        if outlines[character].healthBar then
-            outlines[character].healthBar:Destroy()
-        end
+        outlines[character].healthBar:Remove()
         outlines[character].username:Remove()
         outlines[character].healthText:Remove()
         outlines[character] = nil
     end
 end
 
--- Function to update the outlines for all players
+-- Function to update the 3D boxes for all players
 local function updateOutlineESP()
     while espEnabled do
         for _, player in pairs(players:GetPlayers()) do
             if player ~= players.LocalPlayer then
                 local character = player.Character
-                if character and player.Character:FindFirstChild("Humanoid") and player.Character:FindFirstChild("Humanoid").Health > 0 then
-                    drawOutline(player, character)
+                if character and character:FindFirstChild("Humanoid") and character.Humanoid.Health > 0 then
+                    draw3DBox(player, character)
                 else
-                    removeOutline(player.Character)
+                    remove3DBox(character)
                 end
             end
         end
@@ -157,17 +166,17 @@ end
 -- Cleanup when a player dies or leaves
 players.PlayerRemoving:Connect(function(player)
     if player.Character then
-        removeOutline(player.Character)
+        remove3DBox(player.Character)
     end
 end)
 
 players.PlayerAdded:Connect(function(player)
     player.CharacterRemoving:Connect(function(character)
-        removeOutline(character)
+        remove3DBox(character)
     end)
 end)
 
--- Method to start the outline ESP
+-- Method to start the 3D box ESP
 function OutlineESP.start()
     if not espEnabled then
         espEnabled = true
@@ -175,19 +184,18 @@ function OutlineESP.start()
     end
 end
 
--- Method to stop the outline ESP
+-- Method to stop the 3D box ESP
 function OutlineESP.stop()
     espEnabled = false
-    -- Hide and clean up all outlines
-    for _, outline in pairs(outlines) do
+    -- Hide and clean up all boxes
+    for _, box in pairs(outlines) do
         for i = 1, 12 do
-            outline["line" .. i]:Remove()
+            box["line" .. i]:Remove()
         end
-        outline.healthBar:Destroy()
-        outline.username:Remove()
-        outline.healthText:Remove()
+        box.healthBar:Remove()
+        box.username:Remove()
+        box.healthText:Remove()
     end
-    -- Clear the outlines table
     outlines = {}
 end
 
