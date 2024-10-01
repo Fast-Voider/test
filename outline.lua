@@ -101,9 +101,6 @@ local function draw3DBox(player, character)
 
             -- Update the health bar (right side of the box)
             local healthRatio = humanoid.Health / humanoid.MaxHealth
-            box.healthBar.From = screenCorners[3] + Vector2.new(5, 0)  -- Start at the bottom right corner
-            box.healthBar.To = screenCorners[7] + Vector2.new(5, -(screenCorners[7].Y - screenCorners[3].Y) * (1 - healthRatio))
-            box.healthBar.Visible = true
 
             -- Update the username display (above the box)
             box.username.Position = (screenCorners[5] + screenCorners[6]) / 2 + Vector2.new(0, -20)
@@ -119,7 +116,7 @@ local function draw3DBox(player, character)
             for i = 1, 12 do
                 box["line" .. i].Visible = false
             end
-            box.healthBar.Visible = false
+
             box.username.Visible = false
             box.healthText.Visible = false
         end
@@ -132,7 +129,6 @@ local function remove3DBox(character)
         for i = 1, 12 do
             outlines[character]["line" .. i]:Remove()
         end
-        outlines[character].healthBar:Remove()
         outlines[character].username:Remove()
         outlines[character].healthText:Remove()
         outlines[character] = nil
@@ -185,7 +181,6 @@ function OutlineESP.stop()
         for i = 1, 12 do
             box["line" .. i]:Remove()
         end
-        box.healthBar:Remove()
         box.username:Remove()
         box.healthText:Remove()
     end
