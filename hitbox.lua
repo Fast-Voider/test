@@ -1,11 +1,7 @@
--- HITBOX with team check, resizing, and reset for local player's team, and skipping local player resizing
-local player = game.Players.LocalPlayer
-local runService = game:GetService("RunService")
-
--- Hitbox table to encapsulate functionality
+-- HITBOX script with toggle functionality
 local hitbox = {}
 hitbox.enabled = false
-local resizingCoroutine -- For stopping the loop when toggled off
+local player = game.Players.LocalPlayer
 
 -- Function to resize head
 local function resizeHead(part)
@@ -15,7 +11,7 @@ local function resizeHead(part)
     end
 end
 
--- Function to reset head size (for your team)
+-- Function to reset head size
 local function resetHeadSize(part)
     if part then
         part.Size = Vector3.new(1, 1, 1)
@@ -24,51 +20,30 @@ local function resetHeadSize(part)
 end
 
 -- Function to check if the part is already resized
-local function stopResizing(part)
-    if part then
-        return part.Size == Vector3.new(5, 5, 5)
-    end
-    return false
+local function isResized(part)
+    return part and part.Size == Vector3.new(5, 5, 5)
 end
 
--- Function to manage the resizing loop
-local function manageHitbox()
+-- Function to handle the hitbox logic
+local function hitboxLoop()
     while hitbox.enabled do
-        -- Track teams for printing later
-        local resizedTeams = {}
-        local notResizedTeam = player.Team and player.Team.Name or "No Team"
-
-        -- Resize heads of other players, and reset head size for local player's team
         for _, v in ipairs(game.Players:GetPlayers()) do
             if v.Character then
-                local otherPlayerTeam = v.Team
-                local myTeam = player.Team
-                local otherHead = v.Character:FindFirstChild("Head")
-
-                -- Skip resizing for the local player (yourself)
-                if v == player then
-                    if stopResizing(otherHead) then
-                        resetHeadSize(otherHead)
-                    end
-                elseif otherPlayerTeam and myTeam and otherPlayerTeam ~= myTeam then
-                    -- Resize heads of players not on your team
-                    if otherHead and not stopResizing(otherHead) then
-                        resizeHead(otherHead)
-
-                        -- Track the team name to avoid duplication in printing
-                        if not resizedTeams[otherPlayerTeam.Name] then
-                            resizedTeams[otherPlayerTeam.Name] = true
+                local head = v.Character:FindFirstChild("Head")
+                if head then
+                    if v.Team ~= player.Team then
+                        if not isResized(head) then
+                            resizeHead(head)
                         end
-                    end
-                elseif otherPlayerTeam == myTeam then
-                    -- Reset the head size for players on your team
-                    if otherHead and stopResizing(otherHead) then
-                        resetHeadSize(otherHead)
+                    else
+                        if isResized(head) then
+                            resetHeadSize(head)
+                        end
                     end
                 end
             end
         end
-        wait(5) -- a small delay to prevent excessive loop iteration; adjust based on your device performance
+        wait(5)
     end
 end
 
@@ -76,10 +51,7 @@ end
 function hitbox.toggle()
     hitbox.enabled = not hitbox.enabled
     if hitbox.enabled then
-        resizingCoroutine = coroutine.create(manageHitbox)
-        coroutine.resume(resizingCoroutine)
-    else
-        hitbox.enabled = false
+        spawn(hitboxLoop)
     end
 end
 
